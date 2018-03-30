@@ -1,0 +1,27 @@
+#stage
+{
+    width: 700px;
+    height: 600px;
+    margin-left: auto;
+    margin-right: auto;
+}
+body
+{
+    background-image: url("../assets/img/universe.jpg") ;
+
+}
+#score
+{
+    font-size: 35px;
+    color: white;
+    position: relative;
+    left: 100px;
+    top: 80px;
+}
+#timer
+{
+    font-size: 35px;
+    color: white;
+    position: relative;
+    left: 400px;
+}

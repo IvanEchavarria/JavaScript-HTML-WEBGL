@@ -1,0 +1,1572 @@
+<!DOCTYPE html>
+
+<head>
+    <title>Assignment 5 - Ivan Echavarria- Texture</title>
+    <meta http-equiv='content-type' content='text/html; charset=ISO-8859-1'>
+    <!-- CSS Styles //-->
+    <link href='Common/css/style.css' type='text/css' rel='stylesheet'>
+    <link href='Common/css/desert.css' type='text/css' rel='stylesheet' />
+    <link href='Common/css/colorpicker.css' type='text/css' rel='stylesheet' />
+    <link href='Common/css/jquery-ui.min.css' type='text/css' rel='stylesheet' />
+    <!-- JavaScript Libraries //-->
+	
+    <script type="text/javascript" src="Common/js/webgl-utils.js"></script>
+    <script type="text/javascript" src="Common/js/initShaders.js"></script>
+    <script type='text/javascript' src='Common/js/gl-matrix-min.js'></script>
+    <script type='text/javascript' src='Common/js/jquery-3.2.1.min.js'></script>
+    <script type='text/javascript' src='Common/js/jquery-ui.min.js'></script>
+    <script type='text/javascript' src='Common/js/prettify.js'></script>
+    <script type='text/javascript' src='Common/js/utils.js'></script>
+    <script type='text/javascript' src='Common/js/colorpicker.js'></script>
+    <script type='text/javascript' src='Common/js/codeview.js'></script>	
+	<img id="cubeTexturePic" src='./wicker_256.jpg' style='display:none' />
+	<img id="tableTexturePic" src='./wood_128x128.jpg' style='display:none'/>
+	<img id="floorTexturePic" src='./wood_floor_256.jpg' style='display:none'/>
+    <script id="vertex-shader" type="x-shader/x-vertex">		
+	//
+
+    attribute vec4 vPosition;
+    attribute vec4 vNormal;
+	
+	attribute vec2 aTextureCoordinates;
+	varying vec2 vTextureCoordinates;
+
+    varying vec4 vFinalColor;
+	
+
+    uniform mat4 normalMatrix;
+    uniform mat4 modelViewMatrix;
+    uniform mat4 projectionMatrix;
+
+   varying vec3 vEyeVec;
+   varying vec3 varNormal;
+   
+   uniform vec3 theta;
+
+
+    void
+    main()
+    {
+      //Transformed vertex position
+      vec4 vertex = modelViewMatrix * vPosition;
+
+       //Transformed normal position
+       varNormal = vec3(normalMatrix * vNormal);
+       //Vector Eye
+       vEyeVec = -vec3(vertex);
+        //Final vertex position	   
+       gl_Position = projectionMatrix * modelViewMatrix * vPosition;
+	   gl_Position.y = -gl_Position.y;
+	   vTextureCoordinates = aTextureCoordinates;
+    }
+    </script>
+
+    <script id="fragment-shader" type="x-shader/x-fragment">
+    #ifdef GL_ES
+    precision highp float;
+    #endif
+
+	varying vec2 vTextureCoordinates;
+	
+	uniform sampler2D uSampler;
+	
+    uniform float uShininess;        //shininess
+    uniform vec3 uLightDirection;  //light direction
+
+    uniform vec4 uLightAmbient;      //light ambient property
+    uniform vec4 uLightDiffuse;      //light diffuse property
+    uniform vec4 uLightSpecular;     //light specular property
+
+    uniform vec4 uMaterialAmbient;  //object ambient property
+    uniform vec4 uMaterialDiffuse;   //object diffuse property
+    uniform vec4 uMaterialSpecular;  //object specular property
+
+    varying vec3 varNormal;
+    varying vec3 vEyeVec;
+
+    void main(void)
+    {
+         vec3 L = normalize(uLightDirection);
+         vec3 N = normalize(varNormal);
+
+         //Lambert's cosine law
+         float lambertTerm = dot(N,-L);
+
+         //Ambient Term
+         vec4 Ia = uLightAmbient * uMaterialAmbient;
+
+         //Diffuse Term
+         vec4 Id = vec4(0.0,0.0,0.0,1.0);
+
+         //Specular Term
+         vec4 Is = vec4(0.0,0.0,0.0,1.0);
+
+         if(lambertTerm > 0.0) //only if lambertTerm is positive
+         {
+              Id = uLightDiffuse * uMaterialDiffuse * lambertTerm; //add diffuse term
+
+              vec3 E = normalize(vEyeVec);
+              vec3 R = reflect(L, N);
+              float specular = pow( max(dot(R, E), 0.0), uShininess);
+
+              Is = uLightSpecular * uMaterialSpecular * specular; //add specular term
+         }
+
+         //Final color
+         vec4 finalColor = Ia + Id + Is;
+         finalColor.a = 1.0;
+
+         gl_FragColor = finalColor * texture2D(uSampler, vTextureCoordinates);
+    }
+    </script>
+    <script id='code-js' type="text/javascript">
+        "use strict";
+
+        var program;
+        var canvas;
+        var gl;
+        var vBuffer, nBuffer;
+        var clearColor = [0.0, 0.0, 0.0, 1.0];
+
+        	
+		var cubeVerticesBuffer;
+		var cubeIndicesBuffer; 
+		var cubeNormalsBuffer; 
+		var cubeVertices;   
+		var cubeIndices;
+		var cubeNormals;
+		
+		var tableTopVerticesBuffer;
+		var tableTopIndicesBuffer;
+		var tableTopNormalsBuffer;
+		var tableTopVertices;
+		var tableTopIndices;
+		var tableTopNormals; 
+
+		var tableLegOneVerticesBuffer;
+		var tableLegOneIndicesBuffer;
+		var tableLegOneNormalsBuffer;
+		var tableLegOneVertices;
+		var tableLegOneIndices;
+		var tableLegOneNormals;
+		
+		var tableLegTwoVerticesBuffer;
+		var tableLegTwoIndicesBuffer;
+		var tableLegTwoNormalsBuffer;
+		var tableLegTwoVertices;
+		var tableLegTwoIndices;
+		var tableLegTwoNormals;
+		
+		var tableLegThreeVerticesBuffer;
+		var tableLegThreeIndicesBuffer;
+		var tableLegThreeNormalsBuffer;
+		var tableLegThreeVertices;
+		var tableLegThreeIndices;
+		var tableLegThreeNormals;
+		
+		var tableLegFourVerticesBuffer;
+		var tableLegFourIndicesBuffer;
+		var tableLegFourNormalsBuffer;
+		var tableLegFourVertices;
+		var tableLegFourIndices;
+		var tableLegFourNormals;
+		
+		var floorVerticesBuffer;
+		var floorIndicesBuffer;
+		var floorNormalsBuffer;
+		var floorVertices;
+		var floorIndices;
+		var floorNormals;
+		
+			
+        var index = 0;
+	
+		var cubeTexture;
+		var tableTexture;
+		var floortexture;
+		
+		var cubeVertexTextureCoordinates;
+	
+        var eye = [-8, 5.0, -10];
+        const at = [0.0, 0.0, 0.0];
+        const up = [0.0, -1.0, 0.0];
+
+        var near = 0.1;
+        var far = 10000;
+        var radius = 5.0;
+        var theta = 0.0;
+        var phi = 0.0;
+        var dr = 5.0 * Math.PI / 180.0;
+
+        var left = -3.0;
+        var right = 3.0;
+        var ytop = 3.0;
+        var bottom = -3.0;
+
+        var fovy = 45.0;  // Field-of-view in Y direction angle (in degrees)
+        var aspect = 1.0;
+
+        var angle = 0;
+		
+		var xAxis = 0;
+		var yAxis = 1;
+		var zAxis = 0;
+
+		var axis = 1;
+
+		var toggle = true;
+
+        var modelViewMatrix, projectionMatrix, normalMatrix;
+
+        var lightDirection = [1.0, -1.0, -1.0];
+        var lightDiffuse = [1.0, 1.0, 1.0, 1.0];
+        var materialDiffuse = [0.5, 0.8, 0.0, 1.0];
+
+		function configureTexture(cubeImage , tableImage, floorImage) {
+		//Cube texture setup
+            program.cubeTexture = gl.createTexture();
+            gl.bindTexture(gl.TEXTURE_2D, program.cubeTexture);
+            gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB,
+                gl.RGB, gl.UNSIGNED_BYTE, cubeImage);
+            gl.generateMipmap(gl.TEXTURE_2D);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER,
+                gl.NEAREST_MIPMAP_LINEAR);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+
+            gl.bindTexture(gl.TEXTURE_2D, null);		
+
+		//Table texture setup	
+			
+			program.tableTexture = gl.createTexture();
+			gl.bindTexture(gl.TEXTURE_2D, program.tableTexture);
+			gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB,
+                gl.RGB, gl.UNSIGNED_BYTE, tableImage);
+            gl.generateMipmap(gl.TEXTURE_2D);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER,
+                gl.NEAREST_MIPMAP_LINEAR);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+
+            gl.bindTexture(gl.TEXTURE_2D, null);
+			
+		//Floor texture setup	
+		
+			program.floortexture = gl.createTexture();
+			gl.bindTexture(gl.TEXTURE_2D, program.floortexture);
+			gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB,
+                gl.RGB, gl.UNSIGNED_BYTE, floorImage);
+            gl.generateMipmap(gl.TEXTURE_2D);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER,
+                gl.NEAREST_MIPMAP_LINEAR);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+
+            gl.bindTexture(gl.TEXTURE_2D, null);
+        }
+		
+		 
+
+        /**
+        * This function generates data and creates the buffers
+        */
+        function initBuffers() {
+            			
+				cubeVertices = [
+
+				   // Front face
+
+				   1.0, 3.5,  1.0, //v0 
+
+				  -1.0,  3.5,  1.0, //v1
+
+				  -1.0, 2.5,  1.0, //v2
+
+				   1.0, 2.5,  1.0, //v3
+
+
+
+				   // Back face
+
+				   1.0,  3.5, -1.0, //v4
+
+				  -1.0,  3.5, -1.0, //v5
+
+				  -1.0, 2.5, -1.0, //v6
+
+				   1.0, 2.5, -1.0, //v7
+
+
+
+				   // Left face
+
+				  -1.0,  3.5,  1.0, //v8
+
+				  -1.0,  3.5, -1.0, //v9
+
+				  -1.0, 2.5, -1.0, //v10
+
+				  -1.0, 2.5,  1.0, //v11
+
+
+
+				   // Right face
+
+				   1.0,  3.5,  1.0, //12
+
+				   1.0, 2.5,  1.0, //13
+
+				   1.0, 2.5, -1.0, //14
+
+				   1.0,  3.5, -1.0, //15
+
+
+
+					// Top face
+
+					1.0,  3.5,  1.0, //v16
+
+					1.0,  3.5, -1.0, //v17
+
+				   -1.0,  3.5, -1.0, //v18
+
+				   -1.0,  3.5,  1.0, //v19
+
+
+
+					// Bottom face
+
+					1.0, 2.5,  1.0, //v20
+
+					1.0, 2.5, -1.0, //v21
+
+				   -1.0, 2.5, -1.0, //v22
+
+				   -1.0, 2.5,  1.0, //v23
+
+			  ];
+			
+				cubeIndices = [
+
+					0, 1, 2,      0, 2, 3,    // Front face
+
+					4, 6, 5,      4, 7, 6,    // Back face
+
+					8, 9, 10,     8, 10, 11,  // Left face
+
+					12, 13, 14,   12, 14, 15, // Right face
+
+					16, 17, 18,   16, 18, 19, // Top face
+
+					20, 22, 21,   20, 23, 22  // Bottom face
+
+				];
+				
+				tableTopVertices = [
+				// Front face
+
+					2.5, 2.5, 2.5, //v0
+
+					-2.5, 2.5, 2.5, //v1
+
+					-2.5, 2.0, 2.5, //v2
+
+					2.5, 2.0, 2.5, //v3
+
+
+
+					// Back face
+
+					2.5, 2.5, -2.5, //v4 --
+
+					-2.5, 2.5, -2.5, //v5
+
+					-2.5, 2.0, -2.5, //v6
+
+					2.5, 2.0, -2.5, //v7 --
+
+
+
+					// Left face
+
+					-2.5, 2.5, 2.5, //v8
+
+					-2.5, 2.5, -2.5, //v9
+
+					-2.5, 2.0, -2.5, //v10
+
+					-2.5, 2.0, 2.5, //v11
+
+
+
+					// Right face
+
+					2.5, 2.5, 2.5, //12
+
+					2.5, 2.5, -2.5, //13 --
+
+					2.5, 2.0, -2.5, //14 --
+
+					2.5, 2.0, 2.5, //15
+
+
+
+					// Top face
+
+					2.5, 2.5, -2.5, //v16
+
+					-2.5, 2.5, -2.5, //v17
+
+					-2.5, 2.5, 2.5, //v18
+
+					2.5, 2.5, 2.5, //v19
+
+
+
+					// Bottom face
+
+					 2.5, 2.0, -2.5, //v20
+
+					-2.5, 2.0, -2.5, //v21 --
+
+					-2.5, 2.0, 2.5, //v22
+
+					 2.5, 2.0, 2.5, //v23 
+					];
+					
+				tableLegOneVertices = [// Front face
+
+						-2.5, 2.0, -2.5, //v0 --
+
+						-2.0, 2.0, -2.5, //v1
+
+						-2.0, 0.0, -2.5, //v2
+
+						-2.5, 0.0, -2.5, //v3
+
+
+
+						// Back face
+
+						-2.5, 2.0, -2.0, //v0
+
+						-2.0, 2.0, -2.0, //v1
+
+						-2.0, 0.0, -2.0, //v2
+
+						-2.5, 0.0, -2.0, //v3
+
+
+
+						// Left face
+
+						-2.0, 2.0, -2.5, //v0
+
+						-2.0, 2.0, -2.0, //v1
+					
+						-2.0, 0.0, -2.0, //v2
+
+						-2.0, 0.0, -2.5, //v3
+
+
+
+						// Right face
+
+						-2.5, 2.0, -2.0, //12
+
+						-2.5, 2.0, -2.5,//13
+
+						-2.5, 0.0, -2.5,  //14
+
+						-2.5, 0.0, -2.0, //15
+
+
+
+						// Top face
+
+						-2.0, 2.0, -2.5, //v16
+
+						-2.5, 2.0, -2.5, //v17
+
+						-2.5, 2.0, -2.0, //v18
+
+						-2.0, 2.0, -2.0, //v19
+
+
+
+						// Bottom face
+
+						-2.0, 0.0, -2.5, //v20
+
+						-2.5, 0.0, -2.5, //v21
+
+						-2.5, 0.0, -2.0, //v22
+
+						-2.0, 0.0, -2.0, //v23
+						];
+
+				tableLegTwoVertices = [
+				// Front face
+
+						-2.0, 2.0, 2.5, //v0
+
+						-2.5, 2.0, 2.5, //v1
+
+						-2.5, 0.0, 2.5, //v2
+
+						-2.0, 0.0, 2.5, //v3
+
+
+
+						// Back face
+
+						-2.0, 2.0, 2.0, //v4
+
+						-2.5, 2.0, 2.0, //v5
+
+						-2.5, 0.0, 2.0, //v6
+
+						-2.0, 0.0, 2.0, //v7
+
+
+
+						// Left face
+
+						-2.5, 2.0, 2.5, //v8
+
+						-2.5, 2.0, 2.0, //v9
+
+						-2.5, 0.0, 2.0, //v10
+
+						-2.5, 0.0, 2.5, //v11
+
+
+
+						// Right face
+
+						-2.0, 2.0, 2.0, //12
+
+						-2.0, 2.0, 2.5,//13
+
+						-2.0, 0.0, 2.5,  //14
+
+						-2.0, 0.0, 2.0, //15
+
+
+
+						// Top face
+
+						-2.0, 2.0, 2.0, //v16
+
+						-2.5, 2.0, 2.0, //v17
+
+						-2.5, 2.0, 2.5, //v18
+
+						-2.0, 2.0, 2.5, //v19
+
+
+
+						// Bottom face
+
+						-2.0, 0.0, 2.0, //v20
+
+						-2.5, 0.0, 2.0, //v21
+
+						-2.5, 0.0, 2.5, //v22
+
+						-2.0, 0.0, 2.5, //v23
+						];
+				
+			tableLegThreeVertices = [
+						// Front face
+
+					2.5, 2.0, 2.5, //v0
+
+					2.0, 2.0, 2.5, //v1
+
+					2.0, 0.0, 2.5, //v2
+
+					2.5, 0.0, 2.5, //v3
+
+
+
+					// Back face
+
+					2.5, 2.0, 2.0, //v4
+
+					2.0, 2.0, 2.0, //v5
+
+					2.0, 0.0, 2.0, //v6
+
+					2.5, 0.0, 2.0, //v7
+
+
+
+					// Left face
+
+					2.0, 2.0, 2.5, //v8
+
+					2.0, 2.0, 2.0, //v9
+
+					2.0, 0.0, 2.0, //v10
+
+					2.0, 0.0, 2.5, //v11
+
+
+
+					// Right face
+
+					2.5, 2.0, 2.0, //12
+
+					2.5, 2.0, 2.5,//13
+
+					2.5, 0.0, 2.5,  //14
+
+					2.5, 0.0, 2.0, //15
+
+
+
+					// Top face
+
+					2.5, 2.0, 2.5, //v16
+
+					2.5, 2.0, 2.0, //v17
+
+					2.0, 2.0, 2.0, //v18
+
+					2.0, 2.0, 2.5, //v19
+
+
+
+					// Bottom face
+
+					2.5, 0.0, 2.5, //v20
+
+					2.5, 0.0, 2.0, //v21
+
+					2.0, 0.0, 2.0, //v22
+
+					2.0, 0.0, 2.5, //v23
+					];
+				
+			tableLegFourVertices = [
+							// Front face
+
+						2.5, 2.0, -2.0, //v0
+
+						2.0, 2.0, -2.0, //v1
+
+						2.0, 0.0, -2.0, //v2
+
+						2.5, 0.0, -2.0, //v3
+
+
+
+						// Back face
+
+						2.5, 2.0, -2.5, //v4
+
+						2.0, 2.0, -2.5, //v5
+
+						2.0, 0.0, -2.5, //v6
+
+						2.5, 0.0, -2.5, //v7
+
+
+
+						// Left face
+
+						2.0, 2.0, -2.0, //v8
+
+						2.0, 2.0, -2.5, //v9
+
+						2.0, 0.0, -2.5, //v10
+
+						2.0, 0.0, -2.0, //v11
+
+
+
+						// Right face
+
+						2.5, 2.0, -2.5, //12
+
+						2.5, 2.0, -2.0,//13
+
+						2.5, 0.0, -2.0,  //14
+
+						2.5, 0.0, -2.5, //15
+
+
+
+						// Top face
+
+						2.5, 2.0, -2.0, //v16
+
+						2.5, 2.0, -2.5, //v17
+
+						2.0, 2.0, -2.5, //v18
+
+						2.0, 2.0, -2.0, //v19
+
+
+
+						// Bottom face
+
+						2.5, 0.0, -2.0, //v20
+
+						2.5, 0.0, -2.5, //v21
+
+						2.0, 0.0, -2.5, //v22
+
+						2.0, 0.0, -2.0 //v23
+						];
+						
+			floorVertices = [
+			// Plane in y=0
+						
+					  // Front face
+
+					5.0, 0.0, 5.0, //v0
+
+					-5.0, 0.0, 5.0, //v1
+
+					-5.0, 0.0, 5.0, //v2
+
+					5.0, 0.0, 5.0, //v3
+
+
+
+					// Back face
+
+					5.0, 0.0, -5.0, //v4
+
+					-5.0, 0.0, -5.0, //v5
+
+					-5.0, 0.0, -5.0, //v6
+
+					5.0, 0.0, -5.0, //v7
+
+
+
+					// Left face
+
+					-5.0, 0.0, 5.0, //v8
+
+					-5.0, 0.0, -5.0, //v9
+
+					-5.0, 0.0, -5.0, //v10
+
+					-5.0, 0.0, 5.0, //v11
+
+
+
+					// Right face
+
+					5.0, 0.0, -5.0, //12
+
+					5.0, 0.0, 5.0, //13
+
+					5.0, 0.0, 5.0, //14
+
+					5.0, 0.0, -5.0, //15
+
+
+
+					// Top face
+
+					5.0, 0.0, -5.0, //v16
+
+					-5.0, 0.0, -5.0, //v17
+
+					-5.0, 0.0, 5.0, //v18
+
+					5.0, 0.0, 5.0, //v19
+
+
+
+					// Bottom face
+
+					 5.0, 0.0, -5.0, //v20
+
+					-5.0, 0.0, -5.0, //v21
+
+					-5.0, 0.0, 5.0, //v22
+
+					 5.0, 0.0, 5.0 //v23 
+					   
+					  ];
+					  
+				cubeVertexTextureCoordinates = [
+                1.0, 0.0,
+                1.0, 1.0,  ///Add right vertices
+                0.0, 1.0,
+                0.0, 0.0,
+				1.0, 0.0,
+                1.0, 1.0,  ///Add right vertices
+                0.0, 1.0,
+                0.0, 0.0,
+				1.0, 0.0,
+                1.0, 1.0,  ///Add right vertices
+                0.0, 1.0,
+                0.0, 0.0,
+				1.0, 0.0,
+                1.0, 1.0,  ///Add right vertices
+                0.0, 1.0,
+                0.0, 0.0,
+				1.0, 0.0,
+                1.0, 1.0,  ///Add right vertices
+                0.0, 1.0,
+                0.0, 0.0,
+				1.0, 0.0,
+                1.0, 1.0,  ///Add right vertices
+                0.0, 1.0,
+                0.0, 0.0,
+				1.0, 0.0,
+                1.0, 1.0,  ///Add right vertices
+                0.0, 1.0,
+                0.0, 0.0,
+				1.0, 0.0,
+                1.0, 1.0,  ///Add right vertices
+                0.0, 1.0,
+                0.0, 0.0,
+				1.0, 0.0,
+                1.0, 1.0,  ///Add right vertices
+                0.0, 1.0,
+                0.0, 0.0,
+				1.0, 0.0,
+                1.0, 1.0,  ///Add right vertices
+                0.0, 1.0,
+                0.0, 0.0,
+				1.0, 0.0,
+                1.0, 1.0,  ///Add right vertices
+                0.0, 1.0,
+                0.0, 0.0,
+				1.0, 0.0,
+                1.0, 1.0,  ///Add right vertices
+                0.0, 1.0,
+                0.0, 0.0
+            ];
+					  	
+								
+			tableTopIndices = cubeIndices;
+			tableLegOneIndices = cubeIndices;
+			tableLegTwoIndices = cubeIndices;
+			tableLegThreeIndices = cubeIndices;
+			tableLegFourIndices = cubeIndices;
+			floorIndices = cubeIndices;
+
+			cubeNormals = utils.calculateNormals(cubeVertices, cubeIndices);
+			
+			cubeVerticesBuffer = gl.createBuffer();
+			gl.bindBuffer(gl.ARRAY_BUFFER, cubeVerticesBuffer);
+			gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(cubeVertices), gl.STATIC_DRAW);
+
+			cubeNormalsBuffer = gl.createBuffer();
+			gl.bindBuffer(gl.ARRAY_BUFFER, cubeNormalsBuffer);
+			gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(cubeNormals), gl.STATIC_DRAW);
+
+			cubeIndicesBuffer = gl.createBuffer();
+			gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, cubeIndicesBuffer);
+			gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(cubeIndices), gl.STATIC_DRAW);
+
+			gl.bindBuffer(gl.ARRAY_BUFFER, null);
+			gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
+			
+			//Table top setup			
+			tableTopNormals = utils.calculateNormals(tableTopVertices, tableTopIndices);
+			
+			tableTopVerticesBuffer = gl.createBuffer();
+			gl.bindBuffer(gl.ARRAY_BUFFER, tableTopVerticesBuffer);
+			gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(tableTopVertices), gl.STATIC_DRAW);
+			
+			tableTopNormalsBuffer = gl.createBuffer();
+			gl.bindBuffer(gl.ARRAY_BUFFER, tableTopNormalsBuffer);
+			gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(tableTopNormals), gl.STATIC_DRAW);
+			
+		    tableTopIndicesBuffer = gl.createBuffer();
+			gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, tableTopIndicesBuffer);
+			gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(tableTopIndices), gl.STATIC_DRAW);
+			
+			gl.bindBuffer(gl.ARRAY_BUFFER, null);
+			gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
+			
+			// Leg one setup
+			tableLegOneNormals = utils.calculateNormals(tableLegOneVertices, tableLegOneIndices);
+			
+			tableLegOneVerticesBuffer = gl.createBuffer();
+			gl.bindBuffer(gl.ARRAY_BUFFER, tableLegOneVerticesBuffer);
+			gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(tableLegOneVertices), gl.STATIC_DRAW);
+			
+			tableLegOneNormalsBuffer = gl.createBuffer();
+			gl.bindBuffer(gl.ARRAY_BUFFER, tableLegOneNormalsBuffer);
+			gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(tableLegOneNormals), gl.STATIC_DRAW);
+			
+		    tableLegOneIndicesBuffer = gl.createBuffer();
+			gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, tableLegOneIndicesBuffer);
+			gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(tableLegOneIndices), gl.STATIC_DRAW);
+			
+			gl.bindBuffer(gl.ARRAY_BUFFER, null);
+			gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
+			
+			//Leg two setup
+			
+			tableLegTwoNormals = utils.calculateNormals(tableLegTwoVertices, tableLegTwoIndices);
+			
+			tableLegTwoVerticesBuffer = gl.createBuffer();
+			gl.bindBuffer(gl.ARRAY_BUFFER, tableLegTwoVerticesBuffer);
+			gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(tableLegTwoVertices), gl.STATIC_DRAW);
+			
+			tableLegTwoNormalsBuffer = gl.createBuffer();
+			gl.bindBuffer(gl.ARRAY_BUFFER, tableLegTwoNormalsBuffer);
+			gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(tableLegTwoNormals), gl.STATIC_DRAW);
+			
+		    tableLegTwoIndicesBuffer = gl.createBuffer();
+			gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, tableLegTwoIndicesBuffer);
+			gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(tableLegTwoIndices), gl.STATIC_DRAW);
+			
+			gl.bindBuffer(gl.ARRAY_BUFFER, null);
+			gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
+			
+			//Leg Three Setup
+			
+			tableLegThreeNormals = utils.calculateNormals(tableLegThreeVertices, tableLegThreeIndices);
+			
+			tableLegThreeVerticesBuffer = gl.createBuffer();
+			gl.bindBuffer(gl.ARRAY_BUFFER, tableLegThreeVerticesBuffer);
+			gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(tableLegThreeVertices), gl.STATIC_DRAW);
+			
+			tableLegThreeNormalsBuffer = gl.createBuffer();
+			gl.bindBuffer(gl.ARRAY_BUFFER, tableLegThreeNormalsBuffer);
+			gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(tableLegThreeNormals), gl.STATIC_DRAW);
+			
+		    tableLegThreeIndicesBuffer = gl.createBuffer();
+			gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, tableLegThreeIndicesBuffer);
+			gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(tableLegThreeIndices), gl.STATIC_DRAW);
+			
+			gl.bindBuffer(gl.ARRAY_BUFFER, null);
+			gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
+			
+			//Leg Four setup
+			
+			tableLegFourNormals = utils.calculateNormals(tableLegFourVertices, tableLegFourIndices);
+			
+			tableLegFourVerticesBuffer = gl.createBuffer();
+			gl.bindBuffer(gl.ARRAY_BUFFER, tableLegFourVerticesBuffer);
+			gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(tableLegFourVertices), gl.STATIC_DRAW);
+			
+			tableLegFourNormalsBuffer = gl.createBuffer();
+			gl.bindBuffer(gl.ARRAY_BUFFER, tableLegFourNormalsBuffer);
+			gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(tableLegFourNormals), gl.STATIC_DRAW);
+			
+		    tableLegFourIndicesBuffer = gl.createBuffer();
+			gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, tableLegFourIndicesBuffer);
+			gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(tableLegFourIndices), gl.STATIC_DRAW);
+			
+			gl.bindBuffer(gl.ARRAY_BUFFER, null);
+			gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
+			
+			// Floor Setup
+			
+			floorNormals = utils.calculateNormals(floorVertices, floorIndices);
+			
+			floorVerticesBuffer = gl.createBuffer();
+			gl.bindBuffer(gl.ARRAY_BUFFER, floorVerticesBuffer);
+			gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(floorVertices), gl.STATIC_DRAW);
+			
+			floorNormalsBuffer = gl.createBuffer();
+			gl.bindBuffer(gl.ARRAY_BUFFER, floorNormalsBuffer);
+			gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(floorNormals), gl.STATIC_DRAW);
+			
+		    floorIndicesBuffer = gl.createBuffer();
+			gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, floorIndicesBuffer);
+			gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(floorIndices), gl.STATIC_DRAW);
+			
+			gl.bindBuffer(gl.ARRAY_BUFFER, null);
+			gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
+			
+			//Texture buffers Cube
+			program.cubeVertexTextureCoordinateBuffer = gl.createBuffer();
+			gl.bindBuffer(gl.ARRAY_BUFFER, program.cubeVertexTextureCoordinateBuffer);
+			gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(cubeVertexTextureCoordinates),
+                gl.STATIC_DRAW);
+			
+			//Texture Buffer Table
+			program.TableVertexTextureCoordinateBuffer = gl.createBuffer();
+			gl.bindBuffer(gl.ARRAY_BUFFER, program.TableVertexTextureCoordinateBuffer);
+			gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(cubeVertexTextureCoordinates),
+                gl.STATIC_DRAW);
+				
+			// Texture buffer floor
+			program.floorVertexTextureCoordinateBuffer = gl.createBuffer();
+			gl.bindBuffer(gl.ARRAY_BUFFER, program.floorVertexTextureCoordinateBuffer);
+			gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(cubeVertexTextureCoordinates),
+                gl.STATIC_DRAW);
+						
+			program.FLOOR_VERTEX_TEX_COORD_BUF_ITEM_SIZE = 2;
+            program.FLOOR_VERTEX_TEX_COORD_BUF_NUM_ITEMS = 24;
+			
+        }
+
+        /**
+        * The program contains a series of instructions that tell the Graphic Processing Unit (GPU)
+        * what to do with every vertex and fragment that we pass it.
+        * The vertex shader and the fragment shader together are called the program.
+        */
+        function initProgram() {
+            program = initShaders(gl, "vertex-shader", "fragment-shader");
+            gl.useProgram(program);
+
+            program.vPosition = gl.getAttribLocation(program, "vPosition");
+            program.modelViewMatrix = gl.getUniformLocation(program, "modelViewMatrix");
+            program.projectionMatrix = gl.getUniformLocation(program, "projectionMatrix");
+            program.vNormal = gl.getAttribLocation(program, "vNormal");
+            program.normalMatrix = gl.getUniformLocation(program, "normalMatrix");
+
+            program.uMaterialAmbient = gl.getUniformLocation(program, "uMaterialAmbient");
+            program.uMaterialDiffuse = gl.getUniformLocation(program, "uMaterialDiffuse");
+            program.uMaterialSpecular = gl.getUniformLocation(program, "uMaterialSpecular");
+            program.uShininess = gl.getUniformLocation(program, "uShininess");
+            program.uLightAmbient = gl.getUniformLocation(program, "uLightAmbient");
+            program.uLightDiffuse = gl.getUniformLocation(program, "uLightDiffuse");
+            program.uLightSpecular = gl.getUniformLocation(program, "uLightSpecular");
+            program.uLightDirection = gl.getUniformLocation(program, "uLightDirection");
+			//Texture
+			program.vertexTextureAttributeLoc = gl.getAttribLocation(program, "aTextureCoordinates");
+			program.uniformSamplerLoc = gl.getUniformLocation(program, "uSampler");
+        }
+		
+		function initTextures() {
+            //alternately
+            //loadImageForTexture("SA2011_black.gif", texture)
+			var imageCube = document.getElementById("cubeTexturePic");
+			var imageTable = document.getElementById("tableTexturePic");
+			var imageFloor = document.getElementById("floorTexturePic");			
+			
+            configureTexture(imageCube,imageTable,imageFloor);
+        }
+
+
+        window.onload = function init() {
+            canvas = document.getElementById("gl-canvas");		
+			
+            gl = WebGLUtils.setupWebGL(canvas);
+            if (!gl) { alert("WebGL isn't available"); }
+            gl.viewport(0, 0, canvas.width, canvas.height);
+
+            //Initializes the program (shaders)
+            initProgram();
+            //Initializes the buffers that we are going to use
+            initBuffers();
+            //Initializes lights
+            initLights();
+			//Load Texture	
+			initTextures();
+            //Renders the scene!
+			renderLoop();
+			
+			  document.getElementById("xButton").onclick = function () {
+				xAxis = 1;
+				yAxis = 0;
+				zAxis = 0;
+			};
+			document.getElementById("yButton").onclick = function () {
+				xAxis = 0;
+				yAxis = 1;
+				zAxis = 0;
+			};
+			document.getElementById("zButton").onclick = function () {
+				xAxis = 0;
+				yAxis = 0;
+				zAxis = 1;
+			};
+
+			document.getElementById("toggle").onclick = function () {
+
+				if(toggle)
+					toggle = false;
+				else
+				{
+					toggle = true;
+					renderLoop();
+				}
+			};
+
+			document.getElementById("FOVY").oninput = function () {
+				fovy = this.value;
+				
+			};
+
+			document.getElementById("AspectRatio").oninput = function () {
+								
+				aspect = this.value;
+				
+			};
+        }
+
+        function initLights() {
+
+            gl.uniform3f(program.uLightDirection, -0.25, -0.25, -0.15);
+            gl.uniform4fv(program.uLightAmbient, [0.45, 0.45, 0.45, 1.0]);
+            gl.uniform4fv(program.uLightDiffuse, [1.0, 1.0, 1.0, 1.0]);
+            gl.uniform4fv(program.uLightSpecular, [1.0, 1.0, 1.0, 1.0]);
+            gl.uniform4fv(program.uMaterialAmbient, [1.0, 1.0, 1.0, 1.0]);
+            gl.uniform4fv(program.uMaterialDiffuse, [1.0, 1.0, 1.0, 1.0]);
+            gl.uniform4fv(program.uMaterialSpecular, [1.0, 1.0, 1.0, 1.0]);
+            gl.uniform1f(program.uShininess, 230.0);
+        }
+		
+		function renderLoop()
+		{
+			if(toggle)
+				requestAnimFrame(renderLoop);
+			render();
+			animate();
+		}
+		
+		var lastTime = 0;
+		function animate()
+		{
+			var timeNow = new Date().getTime();
+			if (lastTime != 0) {
+				var elapsed = timeNow - lastTime;
+				angle += (90 * elapsed) / 10000.0;
+			}
+			lastTime = timeNow;
+		}
+
+
+        function render() {
+            gl.clearColor(clearColor[0], clearColor[1], clearColor[2], clearColor[3]);
+
+            gl.clearDepth(100.0);
+            gl.enable(gl.DEPTH_TEST);
+            gl.depthFunc(gl.LEQUAL);
+            gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+            //var d= vec3(0.0, 0.0, -1.5);
+            //modelViewMatrix = translate(modelViewMatrix,d);
+            //projectionMatrix = perspective(45, canvas.width, canvas.height, 0.1, 10000.0);
+            //eye = vec3(radius * Math.sin(theta) * Math.cos(phi),
+            //  radius * Math.sin(theta) * Math.sin(phi), radius * Math.cos(theta));
+
+            gl.uniform3fv(gl.getUniformLocation(program, "eyePosition"), new Float32Array(eye));
+
+            modelViewMatrix = mat4.create();
+            projectionMatrix = mat4.create();
+            normalMatrix = mat4.create();
+
+            mat4.lookAt(modelViewMatrix, eye, at, up);
+            //mat4.translate(modelViewMatrix, modelViewMatrix, [0.0, 0.0, -6.5]); //Sets the camera to a reasonable distance to view 
+            mat4.rotate(modelViewMatrix, modelViewMatrix, angle * Math.PI / 180, [xAxis, yAxis, zAxis]);
+			
+			mat4.perspective(projectionMatrix, fovy, aspect, near, far);
+
+            // normal matrix only really need if there is nonuniform scaling
+            // it's here for generality but since there is
+            // no scaling in this example we could just use modelView matrix in shaders
+
+            normalMatrix = [
+                modelViewMatrix[0], modelViewMatrix[1], modelViewMatrix[2], modelViewMatrix[3],
+                modelViewMatrix[4], modelViewMatrix[5], modelViewMatrix[6], modelViewMatrix[7],
+                modelViewMatrix[8], modelViewMatrix[9], modelViewMatrix[10], modelViewMatrix[11],
+                0, 0, 0, 1
+            ];
+
+
+            gl.uniformMatrix4fv(program.modelViewMatrix, false, modelViewMatrix);
+            gl.uniformMatrix4fv(program.projectionMatrix, false, projectionMatrix);
+            gl.uniformMatrix4fv(program.normalMatrix, false, normalMatrix);
+			
+			gl.uniform1i(program.uniformSamplerLoc, 0);
+
+            try {
+			
+				gl.enableVertexAttribArray(program.vPosition);
+				gl.enableVertexAttribArray(program.vNormal);
+				gl.enableVertexAttribArray(program.vertexTextureAttributeLoc);
+				
+				gl.bindBuffer(gl.ARRAY_BUFFER, cubeVerticesBuffer);
+				gl.vertexAttribPointer(program.vPosition, 3, gl.FLOAT, false, 0, 0);
+				
+				//Texture Cube
+				gl.bindBuffer(gl.ARRAY_BUFFER, program.cubeVertexTextureCoordinateBuffer);
+				gl.vertexAttribPointer(program.vertexTextureAttributeLoc,
+                program.FLOOR_VERTEX_TEX_COORD_BUF_ITEM_SIZE,
+                gl.FLOAT, false, 0, 0);
+				
+				gl.activeTexture(gl.TEXTURE0);
+				gl.bindTexture(gl.TEXTURE_2D, program.cubeTexture);
+
+				gl.bindBuffer(gl.ARRAY_BUFFER, cubeNormalsBuffer);
+				gl.vertexAttribPointer(program.vNormal, 3, gl.FLOAT, false, 0, 0);
+
+				gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, cubeIndicesBuffer);
+				gl.drawElements(gl.TRIANGLES, cubeIndices.length, gl.UNSIGNED_SHORT, 0);
+				gl.bindBuffer(gl.ARRAY_BUFFER, null);
+				gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
+								
+				gl.disableVertexAttribArray(program.vertexTextureAttributeLoc);
+				gl.enableVertexAttribArray(program.vertexTextureAttributeLoc);
+				//Bind tabletop buffers
+				
+				gl.bindBuffer(gl.ARRAY_BUFFER, tableTopVerticesBuffer);
+				gl.vertexAttribPointer(program.vPosition, 3, gl.FLOAT, false, 0, 0);
+				
+				//Texture Table
+				gl.bindBuffer(gl.ARRAY_BUFFER, program.TableVertexTextureCoordinateBuffer);
+				gl.vertexAttribPointer(program.vertexTextureAttributeLoc,
+                program.FLOOR_VERTEX_TEX_COORD_BUF_ITEM_SIZE,
+                gl.FLOAT, false, 0, 0);
+				
+				gl.activeTexture(gl.TEXTURE0);
+				gl.bindTexture(gl.TEXTURE_2D, program.tableTexture);
+
+				gl.bindBuffer(gl.ARRAY_BUFFER, tableTopNormalsBuffer);
+				gl.vertexAttribPointer(program.vNormal, 3, gl.FLOAT, false, 0, 0);
+
+				gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, tableTopIndicesBuffer);
+				gl.drawElements(gl.TRIANGLES, tableTopIndices.length, gl.UNSIGNED_SHORT, 0);
+				//gl.drawElements(gl.LINES, indices.length, gl.UNSIGNED_SHORT,0);
+				//gl.bindBuffer(gl.ARRAY_BUFFER, null);
+				//gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
+				
+				//Bind Leg one buffers
+				
+				gl.bindBuffer(gl.ARRAY_BUFFER, tableLegOneVerticesBuffer);
+				gl.vertexAttribPointer(program.vPosition, 3, gl.FLOAT, false, 0, 0);
+
+				gl.bindBuffer(gl.ARRAY_BUFFER, tableLegOneNormalsBuffer);
+				gl.vertexAttribPointer(program.vNormal, 3, gl.FLOAT, false, 0, 0);
+
+				gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, tableLegOneIndicesBuffer);
+				gl.drawElements(gl.TRIANGLES, tableLegOneIndices.length, gl.UNSIGNED_SHORT, 0);
+				
+				// Bind Leg two buffers
+						
+				gl.bindBuffer(gl.ARRAY_BUFFER, tableLegTwoVerticesBuffer);
+				gl.vertexAttribPointer(program.vPosition, 3, gl.FLOAT, false, 0, 0);
+
+				gl.bindBuffer(gl.ARRAY_BUFFER, tableLegTwoNormalsBuffer);
+				gl.vertexAttribPointer(program.vNormal, 3, gl.FLOAT, false, 0, 0);
+
+				gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, tableLegTwoIndicesBuffer);
+				gl.drawElements(gl.TRIANGLES, tableLegTwoIndices.length, gl.UNSIGNED_SHORT, 0);	
+
+				// Bind Leg Three Buffers
+				
+				gl.bindBuffer(gl.ARRAY_BUFFER, tableLegThreeVerticesBuffer);
+				gl.vertexAttribPointer(program.vPosition, 3, gl.FLOAT, false, 0, 0);
+
+				gl.bindBuffer(gl.ARRAY_BUFFER, tableLegThreeNormalsBuffer);
+				gl.vertexAttribPointer(program.vNormal, 3, gl.FLOAT, false, 0, 0);
+
+				gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, tableLegThreeIndicesBuffer);
+				gl.drawElements(gl.TRIANGLES, tableLegThreeIndices.length, gl.UNSIGNED_SHORT, 0);	
+				
+				// Bind Leg four Buffers
+								
+				gl.bindBuffer(gl.ARRAY_BUFFER, tableLegFourVerticesBuffer);
+				gl.vertexAttribPointer(program.vPosition, 3, gl.FLOAT, false, 0, 0);
+
+				gl.bindBuffer(gl.ARRAY_BUFFER, tableLegFourNormalsBuffer);
+				gl.vertexAttribPointer(program.vNormal, 3, gl.FLOAT, false, 0, 0);
+
+				gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, tableLegFourIndicesBuffer);
+				gl.drawElements(gl.TRIANGLES, tableLegFourIndices.length, gl.UNSIGNED_SHORT, 0);	
+				
+				gl.disableVertexAttribArray(program.vertexTextureAttributeLoc);
+				gl.enableVertexAttribArray(program.vertexTextureAttributeLoc);
+				
+				// Bind floor Buffers
+				
+				gl.bindBuffer(gl.ARRAY_BUFFER, floorVerticesBuffer);
+				gl.vertexAttribPointer(program.vPosition, 3, gl.FLOAT, false, 0, 0);
+				
+				//Texture Table
+				gl.bindBuffer(gl.ARRAY_BUFFER, program.floorVertexTextureCoordinateBuffer);
+				gl.vertexAttribPointer(program.vertexTextureAttributeLoc,
+                program.FLOOR_VERTEX_TEX_COORD_BUF_ITEM_SIZE,
+                gl.FLOAT, false, 0, 0);
+				
+				gl.activeTexture(gl.TEXTURE0);
+				gl.bindTexture(gl.TEXTURE_2D, program.floortexture);				
+				
+				gl.bindBuffer(gl.ARRAY_BUFFER, floorNormalsBuffer);
+				gl.vertexAttribPointer(program.vNormal, 3, gl.FLOAT, false, 0, 0);
+
+				gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, floorIndicesBuffer);
+				gl.drawElements(gl.TRIANGLES, floorIndices.length, gl.UNSIGNED_SHORT, 0);
+                
+            }
+            catch (err) {
+                alert(err);
+                message(err.description);
+            }
+        }
+
+
+    </script>
+
+</head>
+
+<body>
+    <div id='top'>
+        <h2>Assigment 4 - Phong Shading + Phong Lighting</h2>
+    </div>
+
+    <div id='contents'>
+        <div id='canvasContainer'>
+            <canvas id='gl-canvas' width='512' height='512'>
+                Your browser does not support the HTML5 canvas element.
+            </canvas>
+        </div>
+        <div id='controls'>
+
+        </div>
+    </div>
+
+    <div id='bottom'>
+        <table style='padding=0px'>
+            <tr>
+                <td align='right'>Light Color (Light Diffuse Term):</td>
+                <td colspan='2'>
+                    <div id='colorSelectorLight' class='colorSelector'>
+                        <div style='background-color:rgb(256,256,256)'></div>
+                    </div>
+                </td>
+                <td>Sphere Color (Material Diffuse Term):</td>
+                <td colspan='2'>
+                    <div id='colorSelectorSphere' class='colorSelector'>
+                        <div style='background-color:rgb(128,205,26)'></div>
+                    </div>
+                </td>
+            </tr>
+            <tr>
+                <td align='right'>Light Ambient Term:</td>
+                <td id='slider-la-value' width='30px'>0.03</td>
+                <td>
+                    <div id='slider-la' />
+                </td>
+                <td>Material Ambient Term:</td>
+                <td id='slider-ma-value' width='30px'>1.0</td>
+                <td colspan='3'>
+                    <div id='slider-ma' />
+                </td>
+            </tr>
+
+            <tr>
+                <td align='right'>Light Specular Term:</td>
+                <td id='slider-ls-value' width='30px'>1.0</td>
+                <td>
+                    <div id='slider-ls' />
+                </td>
+                <td>Material Specular Term:</td>
+                <td id='slider-ms-value' width='30px'>1.0</td>
+                <td colspan='3'>
+                    <div id='slider-ms' />
+                </td>
+            </tr>
+            <tr>
+
+                <td align='right'>X:</td>
+                <td id='slider-x-value' width='30px' align='center'>0</td>
+                <td width='150px'>
+                    <div id='slider-x' />
+                </td>
+
+                <td>Shininess:</td>
+                <td id='slider-s-value' width='30px'>230</td>
+                <td width='150px'>
+                    <div id='slider-s' />
+                </td>
+            </tr>
+            <tr>
+                <td align='right'>Y:</td>
+                <td id='slider-y-value' width='30px' align='center'>-1.0</td>
+                <td width='150px'>
+                    <div id='slider-y' />
+                </td>
+                <td>Background Color (gl.clearColor):</td>
+                <td colspan='2'>
+                    <div id='colorSelectorBg' class='colorSelector'>
+                        <div style='background-color:rgb(28,28,28)'></div>
+                    </div>
+                </td>
+            </tr>
+            <tr>
+                <td align='right'>Z:</td>
+                <td id='slider-z-value' width='30px' align='center'>-1.0</td>
+                <td width='150px'>
+                    <div id='slider-z' />
+                </td>
+
+            </tr>
+        </table>
+
+        <br/>
+<br />
+    <button id="xButton">Rotate X</button>
+    <button id="yButton">Rotate Y</button>
+    <button id="zButton">Rotate Z</button>
+    <button id="toggle">toggle</button>
+
+<br/>
+    0<input type="range" min="0" max="45" value="45" id="FOVY">45  FOVY Control
+<br/>
+    0<input type="range" min="0" max="4" value="1" id="AspectRatio">1 Aspect Ratio
+        
+    </div>
+    <script>cview.run(cview.MODE_VIEW_AND_CONTROLS);</script>
+    <script>
+        $('#slider-s').slider({ value: 230, min: 0.0, max: 500, step: 1, slide: updateShininess });
+        $('#slider-la').slider({ value: 0.0, min: -0.01, max: 1.0, step: 0.01, slide: updateLightAmbientTerm });
+        $('#slider-ld').slider({ value: 0.3, min: -0.01, max: 1.0, step: 0.01, slide: updateLightDiffuseTerm });
+        $('#slider-ls').slider({ value: 1.0, min: -0.01, max: 1.0, step: 0.01, slide: updateLightSpecularTerm });
+        $('#slider-ma').slider({ value: 1.0, min: -0.2, max: 1.2, step: 0.1, slide: updateMaterialAmbientTerm });
+        $('#slider-ms').slider({ value: 1.0, min: -0.01, max: 1.2, step: 0.1, slide: updateMaterialSpecularTerm });
+        $('#slider-x').slider({ value: 0, min: -10, max: 10, step: 0.1, slide: updateLight, change: updateLight });
+        $('#slider-y').slider({ value: -1, min: -10, max: 10, step: 0.1, slide: updateLight, change: updateLight });
+        $('#slider-z').slider({ value: -1, min: -10, max: 10, step: 0.1, slide: updateLight, change: updateLight });
+
+
+        function updateShininess() {
+            var v = $('#slider-s').slider("value");
+            gl.uniform1f(program.uShininess, v);
+            $('#slider-s-value').html(v);
+        }
+
+        function updateLightAmbientTerm() {
+            var la = $('#slider-la').slider("value");
+            gl.uniform4fv(program.uLightAmbient, [la, la, la, 1.0]);
+            $('#slider-la-value').html(la);
+        }
+
+        function updateLightDiffuseTerm() {
+            var ld = $('#slider-ld').slider("value");
+            gl.uniform4fv(program.uLightDiffuse, [ld, ld, ld, 1.0]);
+            $('#slider-ld-value').html(ld);
+        }
+
+        function updateLightSpecularTerm() {
+            var ls = $('#slider-ls').slider("value");
+            gl.uniform4fv(program.uLightSpecular, [ls, ls, ls, 1.0]);
+            $('#slider-ls-value').html(ls);
+        }
+
+
+        function updateMaterialAmbientTerm() {
+            var ma = $('#slider-ma').slider("value");
+            gl.uniform4fv(program.uMaterialAmbient, [ma, ma, ma, 1.0]);
+            $('#slider-ma-value').html(ma);
+        }
+
+        function updateMaterialSpecularTerm() {
+            var ms = $('#slider-ms').slider("value");
+            gl.uniform4fv(program.uMaterialSpecular, [ms, ms, ms, 1.0]);
+            $('#slider-ms-value').html(ms);
+        }
+
+
+        function updateLight() {
+            var x = $('#slider-x').slider("value");
+            var y = $('#slider-y').slider("value");
+            var z = $('#slider-z').slider("value");
+            gl.uniform3fv(program.uLightDirection, [x, y, z]);
+            $('#slider-x-value').html(x);
+            $('#slider-y-value').html(y);
+            $('#slider-z-value').html(z);
+        }
+
+        function updateObjectColor(r, g, b) {
+            gl.uniform4fv(program.uMaterialDiffuse, [r, g, b, 1.0]);
+        }
+
+        function updateLightColor(r, g, b) {
+            gl.uniform4fv(program.uLightDiffuse, [r, g, b, 1.0]);
+        }
+
+        function updateClearColor(r, g, b) {
+            clearColor = [r, g, b, 1.0];
+        }
+
+
+        $('#colorSelectorSphere').ColorPicker({
+            onSubmit: function (hsb, hex, rgb, el) {
+                $(el).val(hex);
+                $(el).ColorPickerHide();
+
+            },
+            color: '#00ff00',
+            onShow: function (colpkr) {
+                $(colpkr).fadeIn(500);
+                return false;
+            },
+            onHide: function (colpkr) {
+                $(colpkr).fadeOut(500);
+                return false;
+            },
+            onChange: function (hsb, hex, rgb) {
+                $('#colorSelectorSphere div').css('backgroundColor', '#' + hex);
+                updateObjectColor(rgb.r / 256, rgb.g / 256, rgb.b / 256);
+            },
+
+            onBeforeShow: function (colpkr) {
+                $(colpkr).ColorPickerSetColor('rgb(0.5,0.8,0.1)');
+            }
+        })
+
+
+        $('#colorSelectorLight').ColorPicker({
+            onSubmit: function (hsb, hex, rgb, el) {
+                $(el).val(hex);
+                $(el).ColorPickerHide();
+
+            },
+            color: '#00ff00',
+            onShow: function (colpkr) {
+                $(colpkr).fadeIn(500);
+                return false;
+            },
+            onHide: function (colpkr) {
+                $(colpkr).fadeOut(500);
+                return false;
+            },
+            onChange: function (hsb, hex, rgb) {
+                $('#colorSelectorLight div').css('backgroundColor', '#' + hex);
+                updateLightColor(rgb.r / 256, rgb.g / 256, rgb.b / 256);
+            },
+
+            onBeforeShow: function (colpkr) {
+                $(colpkr).ColorPickerSetColor('rgb(0.5,0.8,0.1)');
+            }
+        })
+
+        $('#colorSelectorBg').ColorPicker({
+            onSubmit: function (hsb, hex, rgb, el) {
+                $(el).val(hex);
+                $(el).ColorPickerHide();
+
+            },
+            color: '#00ff00',
+            onShow: function (colpkr) {
+                $(colpkr).fadeIn(500);
+                return false;
+            },
+            onHide: function (colpkr) {
+                $(colpkr).fadeOut(500);
+                return false;
+            },
+            onChange: function (hsb, hex, rgb) {
+                $('#colorSelectorBg div').css('backgroundColor', '#' + hex);
+                updateClearColor(rgb.r / 256, rgb.g / 256, rgb.b / 256);
+            },
+
+            onBeforeShow: function (colpkr) {
+                $(colpkr).ColorPickerSetColor('rgb(0.5,0.8,0.1)');
+            }
+        })
+
+    </script>
+</body>
+
+</html>
