@@ -1,0 +1,30 @@
+#stage
+        {
+            width: 1400px;
+            height: 900px;
+            background-color: black;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+#healthBar{
+    position: absolute;
+    width: 340px;
+    background-color: grey;
+    margin-left: 126px;
+    margin-top: 7.2px;
+    visibility: hidden;
+    border-radius: 10px;
+}
+
+#healthPercentage{
+    position: absolute;
+    width: 340px;
+    height: 11px;
+    background-color: green;
+    margin-top: 7.2px;
+    text-align: center;
+    line-height: 10px;
+    visibility: hidden;
+    border-radius: 10px;
+}
